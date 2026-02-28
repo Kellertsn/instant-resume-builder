@@ -55,7 +55,6 @@ A modern, open-source resume builder built with React, Vite, Tailwind CSS, and F
 ## Local Development
 
 ```bash
-cd insta-site
 npm install
 npm run dev
 ```
@@ -69,7 +68,7 @@ The latest version is always available at:
 
 ## Deployment
 
-- **Vercel:** Deploy the `insta-site` folder as a Vite app.
+- **Vercel:** Deploy as a Vite app from the project root.
 - **Firebase Hosting:** Follow the [Firebase Hosting documentation](https://firebase.google.com/docs/hosting).
 
 ## Cloud Save/Load
