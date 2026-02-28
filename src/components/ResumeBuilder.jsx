@@ -3,7 +3,7 @@ import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { saveResume, loadResume, getRecentResumes } from '../firestoreResume';
 import { auth, provider } from '../firebase';
-import { onAuthStateChanged, signInWithRedirect, getRedirectResult, signOut } from 'firebase/auth';
+import { onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from 'firebase/auth';
 
 export default function ResumeBuilder() {
   // Preload Chinese font and calculate preview width
@@ -380,7 +380,13 @@ export default function ResumeBuilder() {
     return unsubscribe;
   }, []);
 
-  const handleGoogleLogin = () => signInWithRedirect(auth, provider);
+  const handleGoogleLogin = () => {
+    if (import.meta.env.DEV) {
+      signInWithPopup(auth, provider);
+    } else {
+      signInWithRedirect(auth, provider);
+    }
+  };
   const handleLogout = () => signOut(auth);
 
   // --- Firestore Cloud Save/Load ---
