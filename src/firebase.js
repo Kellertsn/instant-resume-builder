@@ -2,19 +2,17 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
 import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that are required
-// https://firebase.google.com/docs/web/setup#available-libraries
+import { getAuth, GoogleAuthProvider } from "firebase/auth";
 
-// Web app Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+// Web app Firebase configuration — values loaded from environment variables
 const firebaseConfig = {
-  apiKey: "AIzaSyAHE4_Wi-0P1Mq_C_WzIkrxZOReN0AJWMM",
-  authDomain: "instant-resume-builder-2d74b.firebaseapp.com",
-  projectId: "instant-resume-builder-2d74b",
-  storageBucket: "instant-resume-builder-2d74b.appspot.com",
-  messagingSenderId: "597770366790",
-  appId: "1:597770366790:web:6bc43f00539c4e926c3f47",
-  measurementId: "G-HE4S4F7T26"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 // Initialize Firebase
@@ -28,5 +26,5 @@ export const db = initializeFirestore(app, {
   })
 });
 
-// No need to call enableIndexedDbPersistence or settings separately.
-// Offline persistence and cache size are already configured here.
+export const auth = getAuth(app);
+export const provider = new GoogleAuthProvider();

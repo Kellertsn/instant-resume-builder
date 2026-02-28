@@ -8,35 +8,38 @@ const resumeCache = new Map();
  * Save resume to Firebase
  * @param {Object} data - Resume data
  * @param {string} [existingId] - Optional existing ID for updating instead of creating new document
+ * @param {string} userId - The authenticated user's UID
  * @returns {Object} Object containing ID and performance data
  */
-export async function saveResume(data, existingId = null) {
+export async function saveResume(data, existingId = null, userId) {
   try {
     const startTime = performance.now();
     let docRef;
-    
+
+    const resumeData = { ...data, userId };
+
     if (existingId) {
       // Update existing document
       docRef = doc(db, "resumes", existingId);
-      await setDoc(docRef, data, { merge: true });
+      await setDoc(docRef, resumeData, { merge: true });
     } else {
       // Create new document
-      docRef = await addDoc(collection(db, "resumes"), data);
+      docRef = await addDoc(collection(db, "resumes"), resumeData);
     }
-    
+
     const id = existingId || docRef.id;
-    
+
     // Update cache
     resumeCache.set(id, {
-      data,
+      data: resumeData,
       timestamp: Date.now()
     });
-    
+
     const endTime = performance.now();
     const saveTime = endTime - startTime;
-    
-    return { 
-      id, 
+
+    return {
+      id,
       saveTime,
       success: true,
       message: existingId ? 'Resume updated' : 'Resume saved'
@@ -63,7 +66,7 @@ export async function loadResume(id) {
     if (resumeCache.has(id)) {
       const cached = resumeCache.get(id);
       const cacheAge = Date.now() - cached.timestamp;
-      
+
       // If cache is less than 5 minutes old, use it directly
       if (cacheAge < 5 * 60 * 1000) {
         return {
@@ -74,22 +77,22 @@ export async function loadResume(id) {
         };
       }
     }
-    
+
     const startTime = performance.now();
     const docRef = doc(db, "resumes", id);
     const docSnap = await getDoc(docRef);
     const endTime = performance.now();
     const loadTime = endTime - startTime;
-    
+
     if (docSnap.exists()) {
       const data = docSnap.data();
-      
+
       // Update cache
       resumeCache.set(id, {
         data,
         timestamp: Date.now()
       });
-      
+
       return {
         data,
         loadTime,
@@ -117,16 +120,21 @@ export async function loadResume(id) {
 
 /**
  * Get user's recent resumes
+ * @param {string} userId - The authenticated user's UID
  * @param {number} [maxResults=5] - Maximum number of results
  * @returns {Array} Array of resume IDs and creation times
  */
-export async function getRecentResumes(maxResults = 5) {
+export async function getRecentResumes(userId, maxResults = 5) {
   try {
     const startTime = performance.now();
-    
-    const q = query(collection(db, "resumes"), limit(maxResults));
+
+    const q = query(
+      collection(db, "resumes"),
+      where("userId", "==", userId),
+      limit(maxResults)
+    );
     const querySnapshot = await getDocs(q);
-    
+
     const results = [];
     querySnapshot.forEach((doc) => {
       results.push({
@@ -135,10 +143,10 @@ export async function getRecentResumes(maxResults = 5) {
         name: doc.data().name || 'Unnamed Resume'
       });
     });
-    
+
     const endTime = performance.now();
     const queryTime = endTime - startTime;
-    
+
     return {
       resumes: results,
       queryTime,

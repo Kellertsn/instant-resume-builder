@@ -1,7 +1,7 @@
 {
   "name": "instant-resume-builder",
   "description": "A web application to auto-generate and style your resume from manual input.",
-  "private": false,
+  "private": true,
   "version": "1.0.0",
   "repository": {
     "type": "git",

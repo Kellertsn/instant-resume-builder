@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { saveResume, loadResume, getRecentResumes } from '../firestoreResume';
+import { auth, provider } from '../firebase';
+import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
 
 export default function ResumeBuilder() {
   // Preload Chinese font and calculate preview width
@@ -47,6 +49,7 @@ export default function ResumeBuilder() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [recentResumes, setRecentResumes] = useState([]);
   const [showRecentResumes, setShowRecentResumes] = useState(false);
+  const [user, setUser] = useState(null);
 
   const handleBasic = e => setData({ ...data, [e.target.name]: e.target.value });
 
@@ -368,6 +371,17 @@ export default function ResumeBuilder() {
     };
   }, []);
 
+  // Monitor auth state
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+    return unsubscribe;
+  }, []);
+
+  const handleGoogleLogin = () => signInWithPopup(auth, provider);
+  const handleLogout = () => signOut(auth);
+
   // --- Firestore Cloud Save/Load ---
   const handleSaveToCloud = async () => {
     setCloudStatus('Saving...');
@@ -379,7 +393,7 @@ export default function ResumeBuilder() {
         createdAt: data.createdAt || new Date().toISOString()
       };
       
-      const result = await saveResume(resumeData, resumeId || null);
+      const result = await saveResume(resumeData, resumeId || null, user.uid);
       
       if (result.success) {
         setResumeId(result.id);
@@ -424,8 +438,9 @@ export default function ResumeBuilder() {
   
   // Get recent resumes
   const fetchRecentResumes = async () => {
+    if (!user) return;
     try {
-      const result = await getRecentResumes(5);
+      const result = await getRecentResumes(user.uid, 5);
       if (result.success) {
         setRecentResumes(result.resumes);
       }
@@ -459,6 +474,26 @@ export default function ResumeBuilder() {
     <>
       <div className="flex flex-col items-center mb-4">
         <h1 className="text-4xl font-bold text-center mb-4">Resume Builder</h1>
+
+        {/* Auth status bar */}
+        <div className="flex items-center justify-end w-full mb-2">
+          {user ? (
+            <div className="flex items-center space-x-3">
+              <span className="text-sm text-gray-600">Signed in as <strong>{user.displayName}</strong></span>
+              <button onClick={handleLogout} className="px-3 py-1 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300">
+                Sign out
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={handleGoogleLogin}
+              className="px-4 py-2 bg-googleBlue text-white rounded flex items-center space-x-2"
+            >
+              <span>Sign in with Google</span>
+            </button>
+          )}
+        </div>
+
         <div className="flex items-center space-x-6">
           {/* Preview & Download Group */}
           <div className="flex items-center space-x-2">
@@ -467,69 +502,75 @@ export default function ResumeBuilder() {
             </button>
             <button onClick={downloadPDF} className="px-4 py-2 bg-googleBlue text-white rounded">Download PDF</button>
           </div>
-          
-          {/* Load from Cloud Group */}
-          <div className="flex items-center space-x-4">
-            <div className="relative">
-              <input 
-                className="border px-2 py-2 rounded" 
-                type="text" 
-                placeholder="Resume ID" 
-                value={resumeId} 
-                onChange={e => setResumeId(e.target.value)} 
-                style={{width:'180px', maxWidth: '180px'}} 
-              />
-              {recentResumes.length > 0 && (
-                <button 
-                  onClick={() => setShowRecentResumes(!showRecentResumes)}
-                  className="ml-1 text-gray-500 hover:text-gray-700"
-                  title="Show recent resumes"
-                >
-                  ▼
-                </button>
-              )}
-              {showRecentResumes && recentResumes.length > 0 && (
-                <div className="absolute z-10 mt-1 w-full bg-white border rounded shadow-lg">
-                  {recentResumes.map(resume => (
-                    <div 
-                      key={resume.id} 
-                      className="p-2 hover:bg-gray-100 cursor-pointer border-b last:border-b-0"
-                      onClick={() => loadResumeById(resume.id)}
-                    >
-                      <div className="font-medium">{resume.name || 'Unnamed Resume'}</div>
-                      <div className="text-xs text-gray-500">{resume.id}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
+
+          {/* Cloud Storage Group — only shown when signed in */}
+          {user && (
+            <div className="flex items-center space-x-4">
+              <div className="relative">
+                <input
+                  className="border px-2 py-2 rounded"
+                  type="text"
+                  placeholder="Resume ID"
+                  value={resumeId}
+                  onChange={e => setResumeId(e.target.value)}
+                  style={{width:'180px', maxWidth: '180px'}}
+                />
+                {recentResumes.length > 0 && (
+                  <button
+                    onClick={() => setShowRecentResumes(!showRecentResumes)}
+                    className="ml-1 text-gray-500 hover:text-gray-700"
+                    title="Show recent resumes"
+                  >
+                    ▼
+                  </button>
+                )}
+                {showRecentResumes && recentResumes.length > 0 && (
+                  <div className="absolute z-10 mt-1 w-full bg-white border rounded shadow-lg">
+                    {recentResumes.map(resume => (
+                      <div
+                        key={resume.id}
+                        className="p-2 hover:bg-gray-100 cursor-pointer border-b last:border-b-0"
+                        onClick={() => loadResumeById(resume.id)}
+                      >
+                        <div className="font-medium">{resume.name || 'Unnamed Resume'}</div>
+                        <div className="text-xs text-gray-500">{resume.id}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <button
+                className="px-3 py-2 bg-blue-600 text-white rounded"
+                onClick={handleSaveToCloud}
+                type="button"
+                disabled={!navigator.onLine}
+                title={!navigator.onLine ? 'Cannot save in offline mode' : ''}
+              >
+                Save to Cloud
+              </button>
+              <button
+                className="px-3 py-2 bg-green-600 text-white rounded"
+                onClick={handleLoadFromCloud}
+                type="button"
+              >
+                Load from Cloud
+              </button>
+              <button
+                onClick={fetchRecentResumes}
+                className="px-2 py-2 bg-gray-200 text-gray-700 rounded"
+                title="Refresh recent resumes"
+              >
+                ↻
+              </button>
             </div>
-            <button 
-              className="px-3 py-2 bg-blue-600 text-white rounded" 
-              onClick={handleSaveToCloud} 
-              type="button"
-              disabled={!navigator.onLine}
-              title={!navigator.onLine ? 'Cannot save in offline mode' : ''}
-            >
-              Save to Cloud
-            </button>
-            <button 
-              className="px-3 py-2 bg-green-600 text-white rounded" 
-              onClick={handleLoadFromCloud} 
-              type="button"
-            >
-              Load from Cloud
-            </button>
-            <button 
-              onClick={fetchRecentResumes}
-              className="px-2 py-2 bg-gray-200 text-gray-700 rounded"
-              title="Refresh recent resumes"
-            >
-              ↻
-            </button>
-          </div>
+          )}
         </div>
-        
-        {cloudStatus && (
+
+        {!user && (
+          <p className="mt-3 text-sm text-gray-500">Sign in to save and load your resumes from the cloud.</p>
+        )}
+
+        {cloudStatus && user && (
           <div className={`mt-2 p-2 rounded ${!navigator.onLine ? 'bg-yellow-50 border border-yellow-200' : 'bg-blue-50 border border-blue-200'}`}>
             <div className="flex justify-between items-center">
               <div>{cloudStatus}</div>
@@ -543,7 +584,7 @@ export default function ResumeBuilder() {
             </div>
           </div>
         )}
-        
+
         <hr className="border-t border-gray-300 my-4 w-full" />
       </div>
       <style>{`
